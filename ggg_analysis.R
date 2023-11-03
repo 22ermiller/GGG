@@ -29,7 +29,7 @@ rmse_vec(train[is.na(na_df)], imputed_df[is.na(na_df)])
 ## Create Recipe
 
 my_recipe <- recipe(type~., data=train) %>%
-  step_mutate_at(all_nominal_predictors(), fn = factor) #%>%
+  step_mutate_at(all_nominal_predictors(), fn = factor)#%>%
   #step_normalize(all_numeric_predictors()) %>%
   #step_lencode_glm(all_nominal_predictors(), outcome = vars(type))
 
