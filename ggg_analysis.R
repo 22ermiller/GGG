@@ -140,10 +140,94 @@ final_nn_preds <- tibble(id = test$id,
 vroom_write(final_nn_preds, "nn_predictions.csv", delim = ",")
 
 
+# Boosted Trees -----------------------------------------------------------
+
+library(bonsai)
+library(lightgbm)
 
 
+boost_model <- boost_tree(tree_depth=tune(),
+                          trees=tune(),
+                          learn_rate=tune()) %>%
+  set_engine("lightgbm") %>%
+  set_mode("classification")
+
+boost_wf <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(boost_model)
+
+tuning_grid <- grid_regular(tree_depth(),
+                            trees(),
+                            learn_rate(),
+                            levels = 5)
+
+# split data into folds
+folds <- vfold_cv(train, v = 10, repeats = 1)
+
+# run Cross validation
+CV_results <- boost_wf %>%
+  tune_grid(resamples = folds,
+            grid = tuning_grid,
+            metrics = metric_set(roc_auc, accuracy))
+
+# find best parameters
+bestTune <- CV_results %>%
+  select_best("accuracy")
+
+final_boost_workflow <- boost_wf %>%
+  finalize_workflow(bestTune) %>%
+  fit(data = train)
+
+# predict
+boost_preds <- predict(final_boost_workflow,
+                     new_data = test,
+                     type = "class")
+
+final_boost_preds <- tibble(id = test$id,
+                          type = boost_preds$.pred_class)
+
+vroom_write(final_boost_preds, "boost_predictions.csv", delim = ",")
 
 
+# BART --------------------------------------------------------------------
 
+
+bart_model <- bart(trees=tune()) %>%
+  set_engine("dbarts") %>%
+  set_mode("classification")
+
+bart_wf <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(bart_model)
+
+tuning_grid <- grid_regular(trees(),
+                            levels = 5)
+
+# split data into folds
+folds <- vfold_cv(train, v = 10, repeats = 1)
+
+# run Cross validation
+CV_results <- bart_wf %>%
+  tune_grid(resamples = folds,
+            grid = tuning_grid,
+            metrics = metric_set(accuracy))
+
+# find best parameters
+bestTune <- CV_results %>%
+  select_best("accuracy")
+
+final_bart_workflow <- bart_wf %>%
+  finalize_workflow(bestTune) %>%
+  fit(data = train)
+
+# predict
+bart_preds <- predict(final_bart_workflow,
+                       new_data = test,
+                       type = "class")
+
+final_bart_preds <- tibble(id = test$id,
+                            type = bart_preds$.pred_class)
+
+vroom_write(final_bart_preds, "bart_predictions.csv", delim = ",")
 
 
